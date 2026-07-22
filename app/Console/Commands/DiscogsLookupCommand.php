@@ -14,20 +14,21 @@ class DiscogsLookupCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(): int
-    {
+    public function handle(
+        DiscogsService $discogs
+    ): int {
         $artist = $this->argument('artist');
         $title = $this->argument('title');
-
-        /** @var DiscogsService $discogs */
-        $discogs = app(DiscogsService::class);
 
         $this->info('Zoeken op Discogs...');
         $this->newLine();
 
-        $match = $discogs->findBestMatch($artist, $title);
+        $release = $discogs->findBestMatch(
+            $artist,
+            $title
+        );
 
-        if ($match === null) {
+        if ($release === null) {
             $this->error('Geen release gevonden.');
 
             return self::FAILURE;
@@ -36,11 +37,28 @@ class DiscogsLookupCommand extends Command
         $this->table(
             ['Veld', 'Waarde'],
             [
-                ['Discogs ID', $match['id'] ?? '-'],
-                ['Titel', $match['title'] ?? '-'],
-                ['Jaar', $match['year'] ?? '-'],
-                ['Land', $match['country'] ?? '-'],
-                ['Type', $match['type'] ?? '-'],
+                [
+                    'Discogs ID',
+                    $release->discogs_id
+                ],
+                [
+                    'Titel',
+                    $release->artist . ' - ' . $release->title
+                ],
+                [
+                    'Jaar',
+                    $release->year ?? '-'
+                ],
+                [
+                    'Land',
+                    $release->country ?? '-'
+                ],
+                [
+                    'Baseline (median)',
+                    $release->median_price
+                        ? $release->median_price . ' ' . $release->currency
+                        : '-'
+                ],
             ]
         );
 

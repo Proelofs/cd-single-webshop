@@ -2,84 +2,72 @@
 
 namespace App\Services\Discogs;
 
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
 
 class DiscogsClient
 {
-    private PendingRequest $client;
+    private string $baseUrl;
 
     public function __construct()
     {
-        $token = config('discogs.token');
-
-        if (blank($token)) {
-            throw new RuntimeException(
-                'DISCOGS_TOKEN ontbreekt in het .env-bestand.'
-            );
-        }
-
-        $this->client = Http::baseUrl(config('discogs.base_url'))
-            ->acceptJson()
-            ->withToken($token, 'Discogs')
-            ->withUserAgent(config('discogs.user_agent'))
-            ->timeout(config('discogs.timeout', 10))
-            ->retry(3, 1000);
+        $this->baseUrl = config('discogs.base_url');
     }
 
+
     /**
-     * Zoek releases op artiest en titel.
+     * Zoek releases via Discogs database search.
      */
-    public function search(string $artist, string $title): array
-    {
-        return $this->get('/database/search', [
-            'artist'        => $artist,
-            'release_title' => $title,
-            'type'          => 'release',
-        ]);
+    public function search(
+        string $artist,
+        string $title
+    ): array {
+        return Http::acceptJson()
+            ->withHeaders([
+                'Authorization' => 'Discogs token=' . config('discogs.token'),
+                'User-Agent' => config('discogs.user_agent'),
+            ])
+            ->get(
+                $this->baseUrl . '/database/search',
+                [
+                    'artist' => $artist,
+                    'release_title' => $title,
+                    'type' => 'release',
+                ]
+            )
+            ->json();
     }
 
+
     /**
-     * Haal een release op.
+     * Haal volledige release informatie op.
      */
-    public function getRelease(int $releaseId): array
+    public function release(int $id): array
     {
-        return $this->get("/releases/{$releaseId}");
+        return Http::acceptJson()
+            ->withHeaders([
+                'Authorization' => 'Discogs token=' . config('discogs.token'),
+                'User-Agent' => config('discogs.user_agent'),
+            ])
+            ->get(
+                $this->baseUrl . '/releases/' . $id
+            )
+            ->json();
     }
 
-    /**
-     * Haal Marketplace statistieken op.
-     */
-    public function getMarketplaceStats(int $releaseId): array
-    {
-        return $this->get("/marketplace/stats/{$releaseId}");
-    }
 
     /**
-     * Algemene GET helper.
+     * Haal marketplace statistieken op.
      */
-    private function get(string $uri, array $query = []): array
+    public function marketplaceStats(int $id): array
     {
-        try {
-
-            $response = $this->client
-                ->get($uri, $query)
-                ->throw();
-
-            return $response->json();
-
-        } catch (RequestException $e) {
-
-            throw new RuntimeException(
-                sprintf(
-                    'Discogs API request mislukt (%s): %s',
-                    $uri,
-                    $e->getMessage()
-                ),
-                previous: $e
-            );
-        }
+        return Http::acceptJson()
+            ->withHeaders([
+                'Authorization' => 'Discogs token=' . config('discogs.token'),
+                'User-Agent' => config('discogs.user_agent'),
+            ])
+            ->get(
+                $this->baseUrl . '/marketplace/stats/' . $id
+            )
+            ->json();
     }
 }

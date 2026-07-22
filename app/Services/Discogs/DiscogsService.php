@@ -2,6 +2,8 @@
 
 namespace App\Services\Discogs;
 
+use App\Models\DiscogsRelease;
+
 class DiscogsService
 {
     public function __construct(
@@ -9,47 +11,188 @@ class DiscogsService
     ) {
     }
 
-    /**
-     * Zoek releases op artiest en titel.
-     */
-    public function search(string $artist, string $title): array
-    {
-        return $this->client->search($artist, $title);
-    }
 
     /**
-     * Haal één release op.
+     * Zoek release en synchroniseer met database.
      */
-    public function getRelease(int $releaseId): array
-    {
-        return $this->client->getRelease($releaseId);
-    }
+    public function findBestMatch(
+        string $artist,
+        string $title
+    ): ?DiscogsRelease {
 
-    /**
-     * Haal marketplace statistieken op.
-     */
-    public function getMarketplaceStats(int $releaseId): array
-    {
-        return $this->client->getMarketplaceStats($releaseId);
-    }
+        $search = $this->client->search(
+            $artist,
+            $title
+        );
 
-    /**
-     * Zoek de beste match.
-     *
-     * Voorlopig nemen we het eerste resultaat.
-     * Later voegen we fuzzy matching toe.
-     */
-    public function findBestMatch(string $artist, string $title): ?array
-    {
-        $results = $this->search($artist, $title);
 
         if (
-            ! isset($results['results']) ||
-            count($results['results']) === 0
+            !isset($search['results']) ||
+            count($search['results']) === 0
         ) {
             return null;
         }
 
-        return $results['results'][0];
+
+        $result = $search['results'][0];
+
+        $releaseId = (int) $result['id'];
+
+
+        $release = $this->client->release(
+            $releaseId
+        );
+
+
+        $stats = $this->client->marketplaceStats(
+            $releaseId
+        );
+
+
+        $valuation = $this->determineValuation(
+            $stats
+        );
+
+
+        return DiscogsRelease::updateOrCreate(
+            [
+                'discogs_id' => $releaseId,
+            ],
+            [
+                'artist' => $this->artist($release),
+
+                'title' => $release['title']
+                    ?? $result['title'],
+
+                'country' => $release['country']
+                    ?? null,
+
+                'year' => $release['year']
+                    ?? null,
+
+
+                'label' => $this->label($release),
+
+                'catalog_number' => $this->catalogNumber($release),
+
+                'barcode' => $this->barcode($release),
+
+
+                'thumb' => $release['thumb']
+                    ?? null,
+
+                'cover_image' => $release['images'][0]['uri']
+                    ?? null,
+
+                'resource_url' => $release['resource_url']
+                    ?? null,
+
+
+                'lowest_price' =>
+                    $stats['lowest_price']['value']
+                    ?? null,
+
+
+                'median_price' =>
+                    $stats['median_price']['value']
+                    ?? null,
+
+
+                'highest_price' =>
+                    $stats['highest_price']['value']
+                    ?? null,
+
+
+                'currency' =>
+                    $stats['median_price']['currency']
+                    ?? $stats['lowest_price']['currency']
+                    ?? 'EUR',
+
+
+                'valuation_source' =>
+                    $valuation['source'],
+
+                'valuation_confidence' =>
+                    $valuation['confidence'],
+
+
+                'last_synced_at' => now(),
+            ]
+        );
+    }
+
+
+    /**
+     * Bepaal waarderingsbron.
+     */
+    private function determineValuation(array $stats): array
+    {
+        if (
+            isset($stats['median_price']['value'])
+        ) {
+            return [
+                'source' => 'discogs_median',
+                'confidence' => 'HIGH',
+            ];
+        }
+
+
+        if (
+            isset($stats['lowest_price']['value'])
+        ) {
+            return [
+                'source' => 'discogs_lowest_fallback',
+                'confidence' => 'LOW',
+            ];
+        }
+
+
+        return [
+            'source' => null,
+            'confidence' => null,
+        ];
+    }
+
+
+
+    private function artist(array $release): string
+    {
+        return $release['artists'][0]['name']
+            ?? '';
+    }
+
+
+
+    private function label(array $release): ?string
+    {
+        return $release['labels'][0]['name']
+            ?? null;
+    }
+
+
+
+    private function catalogNumber(array $release): ?string
+    {
+        return $release['labels'][0]['catno']
+            ?? null;
+    }
+
+
+
+    private function barcode(array $release): ?string
+    {
+        foreach (
+            $release['identifiers'] ?? []
+            as $identifier
+        ) {
+            if (
+                ($identifier['type'] ?? null)
+                === 'Barcode'
+            ) {
+                return $identifier['value'];
+            }
+        }
+
+        return null;
     }
 }
