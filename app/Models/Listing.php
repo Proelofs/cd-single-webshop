@@ -10,28 +10,26 @@ class Listing extends Model
     protected $fillable = [
 
         'source',
-
         'external_id',
-
         'url',
-
-
+    
         'artist',
-
         'title',
-
+        'marketplace_title',
+        'normalized_artist',
+        'normalized_title',
+    
         'format',
-
         'condition',
-
-
+    
         'price',
-
         'currency',
-
-
+    
         'discogs_release_id',
-
+    
+        'match_status',
+        'match_confidence',
+    
         'status',
 
     ];
