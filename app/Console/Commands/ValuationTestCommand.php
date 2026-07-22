@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Listing;
+use App\Services\Valuation\ArbitrageScoreService;
 use App\Services\Valuation\ValuationService;
 use Illuminate\Console\Command;
 use Illuminate\Console\Attributes\Signature;
@@ -13,7 +14,8 @@ use Illuminate\Console\Attributes\Description;
 class ValuationTestCommand extends Command
 {
     public function handle(
-        ValuationService $valuationService
+        ValuationService $valuationService,
+        ArbitrageScoreService $scoreService
     ): int {
 
         $listing = Listing::latest()->first();
@@ -55,6 +57,13 @@ class ValuationTestCommand extends Command
             );
 
 
+        $score =
+            $scoreService->calculate(
+                (float) $listing->price,
+                $valuation['value']
+            );
+
+
         $this->table(
             [
                 'Veld',
@@ -75,7 +84,7 @@ class ValuationTestCommand extends Command
                 ],
                 [
                     'Discogs waarde',
-                    $valuation['value']
+                    $valuation['value'] !== null
                         ? $valuation['value'] .
                           ' ' .
                           $valuation['currency']
@@ -102,6 +111,16 @@ class ValuationTestCommand extends Command
                     $margin['percentage'] !== null
                         ? $margin['percentage'] . '%'
                         : '-'
+                ],
+                [
+                    'Score',
+                    $score['score'] !== null
+                        ? $score['score'] . '%'
+                        : '-'
+                ],
+                [
+                    'Rating',
+                    $score['rating']
                 ],
             ]
         );
