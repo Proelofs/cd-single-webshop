@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DiscogsRelease extends Model
 {
@@ -45,4 +46,15 @@ class DiscogsRelease extends Model
 
         'last_synced_at' => 'datetime',
     ];
+
+
+    /**
+     * Aanbiedingen gekoppeld aan deze release.
+     */
+    public function listings(): HasMany
+    {
+        return $this->hasMany(
+            Listing::class
+        );
+    }
 }
