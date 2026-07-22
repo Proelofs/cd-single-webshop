@@ -70,4 +70,19 @@ class DiscogsClient
             )
             ->json();
     }
+    /**
+ * Test verkoopdata ophalen.
+ */
+public function marketplaceHistory(int $id): array
+{
+    return Http::acceptJson()
+        ->withHeaders([
+            'Authorization' => 'Discogs token=' . config('discogs.token'),
+            'User-Agent' => config('discogs.user_agent'),
+        ])
+        ->get(
+            $this->baseUrl . '/marketplace/price_suggestions/' . $id
+        )
+        ->json();
+}
 }

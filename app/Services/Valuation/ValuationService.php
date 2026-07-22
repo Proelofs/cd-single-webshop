@@ -7,29 +7,21 @@ use App\Models\DiscogsRelease;
 class ValuationService
 {
     /**
-     * Bepaal de beste beschikbare Discogs waarde.
+     * Bepaal de Discogs baseline waarde.
+     *
+     * Discogs lowest_price is voorlopig
+     * de gekozen baseline.
      */
     public function getBaselineValue(
         DiscogsRelease $release
     ): array {
-
-        if ($release->median_price !== null) {
-
-            return [
-                'value' => $release->median_price,
-                'currency' => $release->currency,
-                'source' => 'discogs_median',
-                'confidence' => 'HIGH',
-            ];
-        }
-
 
         if ($release->lowest_price !== null) {
 
             return [
                 'value' => $release->lowest_price,
                 'currency' => $release->currency,
-                'source' => 'discogs_lowest_fallback',
+                'source' => 'discogs_lowest_price',
                 'confidence' => 'LOW',
             ];
         }
@@ -45,7 +37,7 @@ class ValuationService
 
 
     /**
-     * Bereken mogelijke marge.
+     * Bereken verschil tussen vraagprijs en baseline.
      */
     public function calculateMargin(
         float $listingPrice,
